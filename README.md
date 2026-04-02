@@ -2,6 +2,9 @@
 
 Ez a repozitórium a szakdolgozatom keretein belül készült kódokat tartalmazza.
 
+## Kutatasi_terv.pdf
+A dolgozat kutatási terve.
+
 ## Elofeldolgozas.py
 Ez a program végzi az adatok előfeldolgozását. Iteratívan beolvassa a nyers mérési eredményeket, ezeket szűri, görbéket illeszt rá, majd számos CoP jellemzőt számol.
 
