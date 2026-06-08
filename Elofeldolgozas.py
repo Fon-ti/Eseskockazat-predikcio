@@ -47,8 +47,6 @@ def load_folder_data(folder_path):
     path_force = os.path.join(folder_path, FILENAME_FORCE)
     
     if not os.path.exists(path_cop) or not os.path.exists(path_force):
-        # Hibakeresés: kiírjuk, ha nem találja a fájlt
-        # print(f"    [HIBA] Nem találom a fájlokat itt: {folder_path}")
         return None
 
     try:
@@ -79,26 +77,22 @@ def process_subject(bal_data, jobb_data, output_folder, subject_id):
     n = min(len(bal_data['ML']), len(jobb_data['ML']))
     time = np.arange(n) / Fs
     
-    # 1. TRANSZFORMÁCIÓ (Bal láb tükrözés)
     offset = STANCE_WIDTH_MM / 2
     l_ml_glob = (-1 * bal_data['ML'][:n]) - offset
     r_ml_glob = jobb_data['ML'][:n] + offset
     
-    # 2. NET COP
     total_fz = bal_data['Fz'][:n] + jobb_data['Fz'][:n]
     total_fz[total_fz == 0] = 1.0
     
     net_ml_raw = (l_ml_glob * bal_data['Fz'][:n] + r_ml_glob * jobb_data['Fz'][:n]) / total_fz
     net_ap_raw = (bal_data['AP'][:n] * bal_data['Fz'][:n] + jobb_data['AP'][:n] * jobb_data['Fz'][:n]) / total_fz
     
-    # 3. SZŰRÉS + SPLINE
     net_ml_filt = butter_lowpass_filter(net_ml_raw, CUTOFF_FREQ, Fs, ORDER)
     net_ap_filt = butter_lowpass_filter(net_ap_raw, CUTOFF_FREQ, Fs, ORDER)
     
     pos_ml = fit_thesis_spline(time, net_ml_filt, SLICE_DURATION)
     pos_ap = fit_thesis_spline(time, net_ap_filt, SLICE_DURATION)
     
-    # 4. VÁLTOZÓK
     vel_ml = np.gradient(pos_ml, 1/Fs); acc_ml = np.gradient(vel_ml, 1/Fs)
     vel_ap = np.gradient(pos_ap, 1/Fs); acc_ap = np.gradient(vel_ap, 1/Fs)
     
@@ -122,7 +116,6 @@ def process_subject(bal_data, jobb_data, output_folder, subject_id):
     cov_xy = np.mean(X_cent * Y_cent)
     Sway_Dir_Coeff = cov_xy / (rmsX * rmsY) if (rmsX*rmsY) != 0 else 0
     
-    # 5. SZIMMETRIA
     l_ml_f = butter_lowpass_filter((-1 * bal_data['ML'][:n]), CUTOFF_FREQ, Fs, ORDER)
     r_ml_f = butter_lowpass_filter(jobb_data['ML'][:n], CUTOFF_FREQ, Fs, ORDER)
     l_ap_f = butter_lowpass_filter(bal_data['AP'][:n], CUTOFF_FREQ, Fs, ORDER)
@@ -131,7 +124,6 @@ def process_subject(bal_data, jobb_data, output_folder, subject_id):
     corr_ml = np.corrcoef(l_ml_f, r_ml_f)[0, 1]
     corr_ap = np.corrcoef(l_ap_f, r_ap_f)[0, 1]
     
-    # 6. MENTÉS
     stats_data = [
         ('avgML', avgML, 'mm'), ('avgAP', avgAP, 'mm'),
         ('avgX', np.mean(np.abs(X_cent)), 'mm'), ('avgY', np.mean(np.abs(Y_cent)), 'mm'), ('avgR', np.mean(R_i), 'mm'),
@@ -158,7 +150,7 @@ def process_subject(bal_data, jobb_data, output_folder, subject_id):
     print(f"  [OK] Eredmények mentve: {os.path.basename(out_file)}")
 
 # ==========================================
-# FŐ CIKLUS - SZIGORÚ MÓDSZER
+# FŐ CIKLUS
 # ==========================================
 
 print(f"--- FELDOLGOZÁS INDÍTÁSA ---")
@@ -167,19 +159,13 @@ print(f"Gyökérkönyvtár: {ROOT_SEARCH_DIR}")
 if not os.path.exists(ROOT_SEARCH_DIR):
     print("HIBA: A gyökérkönyvtár nem létezik!")
 else:
-    # 1. Mappák listázása a gyökérben
     subfolders = [f.name for f in os.scandir(ROOT_SEARCH_DIR) if f.is_dir()]
     print(f"Talált mappák ({len(subfolders)} db): {subfolders}")
     
     processed_count = 0
     
     for subject_id in subfolders:
-        # Minden mappa egy ALANY (pl. "s01")
         subject_path = os.path.join(ROOT_SEARCH_DIR, subject_id)
-        
-        # Feltételezzük a fix struktúrát:
-        # s01 -> s01_bal
-        # s01 -> s01_jobb
         
         dir_bal_name = f"{subject_id}_bal"
         dir_jobb_name = f"{subject_id}_jobb"
